@@ -1,0 +1,141 @@
+# ======================
+# Python
+# ======================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ======================
+# Virtual environments
+# ======================
+.venv/
+venv/
+ENV/
+env/
+.python-version.local
+
+# ======================
+# uv
+# ======================
+# Lock file SÍ se commitea, lo dejamos
+# uv.lock  <- comentado a propósito
+
+# ======================
+# IDEs y editores
+# ======================
+# .vscode SÍ se commitea, pero solo settings y extensions
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# ======================
+# Mac
+# ======================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ======================
+# Jupyter
+# ======================
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*.ipynb_checkpoints
+
+# ======================
+# Testing y coverage
+# ======================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# ======================
+# Datos
+# ======================
+# NO commitear datos crudos (pesados y a veces sensibles)
+data/raw/*
+data/interim/*
+data/processed/*
+# Pero SÍ commitear los .gitkeep para mantener la estructura
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# Bases de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# ======================
+# Modelos
+# ======================
+models/saved/*
+!models/saved/.gitkeep
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.onnx
+
+# ======================
+# MLflow
+# ======================
+mlruns/
+mlartifacts/
+mlflow.db
+
+# ======================
+# Logs
+# ======================
+*.log
+logs/
+
+# ======================
+# Secrets
+# ======================
+.env
+.env.local
+.env.*.local
+secrets/
+credentials.json
+*.pem
+*.key
+
+# ======================
+# Streamlit
+# ======================
+.streamlit/secrets.toml
+
+# ======================
+# Docker
+# ======================
+# Dockerfile SÍ se commitea, pero no los volúmenes
+docker-volumes/
