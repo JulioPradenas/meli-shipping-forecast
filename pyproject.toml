@@ -59,6 +59,7 @@ dev = [
     "jupyter>=1.0.0",
     "types-requests",
     "pandas-stubs",
+    "kaggle>=1.6.0",
 ]
 api = [
     "fastapi>=0.110.0",
