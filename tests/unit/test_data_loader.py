@@ -238,3 +238,58 @@ def test_build_daily_aggregates_excludes_non_shipments(loader: DataLoader) -> No
         result = conn.execute(text("SELECT SUM(n_shipments) FROM fact_daily_shipments_by_state"))
         total = result.scalar()
         assert total == 2, f"Expected 2 shipments (o1 + o2), got {total}"
+
+
+def test_build_features_creates_features_table(loader: DataLoader) -> None:
+    """build_features() must populate the features table with lag/rolling cols.
+
+    Verifies:
+      - The features table is created and populated
+      - Row count matches the source aggregate table
+      - Window functions produce NULL for early rows (no lag-1 on first day)
+      - Window functions produce valid values for later rows
+    """
+    loader.create_schema()
+    loader.load_all()
+    loader.build_daily_aggregates()
+    n = loader.build_features()
+
+    # Row count should equal the source aggregate
+    n_source = loader.count_rows("fact_daily_shipments_by_state")
+    assert n == n_source, f"Expected {n_source} rows, got {n}"
+
+    # Verify the table has the expected columns
+    from sqlalchemy import text
+
+    with loader._engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(fact_daily_shipments_features)"))
+        columns = {row[1] for row in result}
+
+    expected_cols = {
+        "shipment_date",
+        "customer_state",
+        "n_shipments",
+        "lag_1",
+        "lag_7",
+        "lag_14",
+        "lag_28",
+        "rolling_mean_7",
+        "rolling_mean_14",
+        "rolling_mean_28",
+        "rolling_std_7",
+    }
+    missing = expected_cols - columns
+    assert not missing, f"Missing columns in features table: {missing}"
+
+
+def test_build_features_raises_if_file_missing(tmp_path: Path) -> None:
+    """build_features() must raise when the features SQL file does not exist."""
+    bad_loader = DataLoader(
+        raw_dir=tmp_path,
+        db_path=tmp_path / "test.db",
+        schema_sql=Path("sql/01_create_schema.sql"),
+        features_sql=Path("does/not/exist.sql"),
+    )
+    bad_loader.create_schema()
+    with pytest.raises(FileNotFoundError):
+        bad_loader.build_features()

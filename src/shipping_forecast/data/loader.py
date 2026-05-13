@@ -44,6 +44,7 @@ class DataLoader:
     db_path: Path
     schema_sql: Path = field(default=Path("sql/01_create_schema.sql"))
     daily_aggregates_sql: Path = field(default=Path("sql/02_build_daily_shipments.sql"))
+    features_sql: Path = field(default=Path("sql/03_lag_features.sql"))
 
     def __post_init__(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -171,4 +172,29 @@ class DataLoader:
 
         n = self.count_rows("fact_daily_shipments_by_state")
         logger.info("fact_daily_shipments_by_state populated with %s rows", f"{n:,}")
+        return n
+
+    def build_features(self) -> int:
+        """Execute the lag/rolling features SQL script.
+
+        Populates ``fact_daily_shipments_features`` from
+        ``fact_daily_shipments_by_state`` using SQL window functions for
+        lag and rolling stats. Returns the number of rows in the resulting
+        table.
+
+        Raises:
+            FileNotFoundError: If ``features_sql`` does not exist.
+        """
+        if not self.features_sql.exists():
+            raise FileNotFoundError(f"Features SQL file not found: {self.features_sql}")
+
+        sql = self.features_sql.read_text(encoding="utf-8")
+        logger.info("Building lag/rolling features from %s", self.features_sql)
+
+        with self._engine.begin() as conn:
+            raw_conn = conn.connection
+            raw_conn.executescript(sql)  # type: ignore[attr-defined]
+
+        n = self.count_rows("fact_daily_shipments_features")
+        logger.info("fact_daily_shipments_features populated with %s rows", f"{n:,}")
         return n

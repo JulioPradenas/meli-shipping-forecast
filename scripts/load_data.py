@@ -44,6 +44,9 @@ def main() -> None:
     log.info("Building daily aggregates")
     n_agg = loader.build_daily_aggregates()
     counts["fact_daily_shipments_by_state"] = n_agg
+    log.info("Building lag/rolling features")
+    n_feat = loader.build_features()
+    counts["fact_daily_shipments_features"] = n_feat
     log.info("Final row counts:")
     for table, n in counts.items():
         actual = loader.count_rows(table)
