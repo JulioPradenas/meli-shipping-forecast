@@ -102,7 +102,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["N802", "N803"]  # allow test function names with weird casing
+# ML convention: X_train, X_test (uppercase X for feature matrices, lowercase y for targets).
+# We allow N806 in modules that legitimately use this convention.
+"tests/*" = ["N802", "N803", "N806"]
+"src/shipping_forecast/models/*" = ["N806"]
 "notebooks/*" = ["E402", "F401"]  # notebooks have flexible imports
 
 [tool.ruff.format]

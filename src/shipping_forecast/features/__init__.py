@@ -9,6 +9,7 @@ Public API:
 * :class:`HolidayFeatures`: Brazilian operational calendar features.
 * :class:`EventFeatures`: commercial event features (Black Friday, etc.).
 * :class:`TrendFeatures`: long-term trend features.
+* :class:`VolumeFeatures`: per-state volume regime features (core/mid/tail).
 * :class:`FeaturePipeline`: orchestrator to chain multiple builders.
 """
 
@@ -20,6 +21,7 @@ from shipping_forecast.features.lags import LagFeatures
 from shipping_forecast.features.pipeline import FeaturePipeline
 from shipping_forecast.features.rolling import RollingFeatures
 from shipping_forecast.features.trend import TrendFeatures
+from shipping_forecast.features.volume import VolumeFeatures
 
 __all__ = [
     "CalendarFeatures",
@@ -30,4 +32,5 @@ __all__ = [
     "LagFeatures",
     "RollingFeatures",
     "TrendFeatures",
+    "VolumeFeatures",
 ]
