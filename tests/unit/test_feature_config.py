@@ -250,9 +250,9 @@ def test_volume_stats_differ_from_test_period_means(synthetic_fold):
         # X_test doesn't carry the state column (it's in NON_FEATURE_COLS),
         # so we filter by state_avg_volume value instead.
         matching = X_test[np.isclose(X_test["state_avg_volume"], train_mean, atol=0.01)]
-        assert (
-            len(matching) > 0
-        ), f"State {state} train_mean={train_mean:.2f} not present in test rows"
+        assert len(matching) > 0, (
+            f"State {state} train_mean={train_mean:.2f} not present in test rows"
+        )
 
 
 # ---------------------------------------------------------------------------
