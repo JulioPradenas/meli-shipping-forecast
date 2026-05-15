@@ -93,8 +93,28 @@ class LightGBMForecaster(ForecastModel):
 
     # ------------------------------------------------------------------ fit
 
-    def fit(self, df: pd.DataFrame) -> LightGBMForecaster:
-        """Train the model on a historical DataFrame."""
+    def fit(
+        self,
+        df: pd.DataFrame,
+        eval_set: pd.DataFrame | None = None,
+        early_stopping_rounds: int = 50,
+    ) -> LightGBMForecaster:
+        """Train the model on a historical DataFrame.
+
+        Args:
+            df: Training DataFrame with at minimum date, group, and target.
+            eval_set: Optional validation DataFrame for early stopping. If
+                provided, the model fits until validation loss has not
+                improved for ``early_stopping_rounds`` iterations, then
+                rolls back to the best iteration. The validation set is
+                transformed using the SAME pipeline as the training set
+                (built from train stats only — no leakage).
+            early_stopping_rounds: Patience for early stopping. Ignored if
+                ``eval_set`` is None. Default 50.
+
+        Returns:
+            self for method chaining.
+        """
         self._validate_columns(df)
 
         state_stats = VolumeFeatures.compute_stats_from_train(
@@ -122,7 +142,24 @@ class LightGBMForecaster(ForecastModel):
 
         model = lgb.LGBMRegressor(**self.params)
         cat_features = [c for c in feature_cols if x_train[c].dtype.name == "category"]
-        model.fit(x_train, y_train, categorical_feature=cat_features or "auto")
+
+        fit_kwargs: dict[str, Any] = {"categorical_feature": cat_features or "auto"}
+        if eval_set is not None:
+            # Transform val using the SAME pipeline (built from train stats).
+            # This preserves anti-leakage: val data is only used to score
+            # early stopping, never to compute features-of-features.
+            val_transformed = pipeline.transform(
+                eval_set.sort_values([GROUP_COL, DATE_COL]).reset_index(drop=True)
+            )
+            val_transformed = val_transformed[val_transformed["is_operational"] == 1]
+            val_transformed = val_transformed.dropna(subset=feature_cols)
+            if not val_transformed.empty:
+                x_val = val_transformed[feature_cols]
+                y_val = val_transformed[TARGET_COL]
+                fit_kwargs["eval_set"] = [(x_val, y_val)]
+                fit_kwargs["callbacks"] = [lgb.early_stopping(early_stopping_rounds, verbose=False)]
+
+        model.fit(x_train, y_train, **fit_kwargs)
 
         self.model_ = model
         self.pipeline_ = pipeline

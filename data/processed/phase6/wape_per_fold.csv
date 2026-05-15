@@ -1,0 +1,5 @@
+fold_id,label,test_start,test_end,lightgbm_wape,seasonal_naive_wape,delta_pct,winner
+1,fold 1: covers Black Friday 2017,2017-11-01,2018-01-31,0.5748,0.546,5.27,SeasonalNaive
+2,fold 2: steady state post-BF,2018-02-01,2018-04-30,0.3414,0.3639,-6.17,LightGBM
+3,fold 3: covers Dia dos Namorados,2018-05-01,2018-06-30,0.2964,0.3967,-25.27,LightGBM
+4,fold 4: final holdout,2018-07-01,2018-08-31,0.4694,0.4563,2.89,SeasonalNaive

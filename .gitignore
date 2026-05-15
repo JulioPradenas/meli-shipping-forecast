@@ -88,6 +88,11 @@ data/processed/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
+# Whitelist small Phase 6+ deliverables (params, metrics, metadata)
+!data/processed/best_lgbm_params.json
+!data/processed/phase6/
+data/processed/phase6/*.joblib
+data/processed/phase6/*.db
 
 # Bases de datos
 *.db

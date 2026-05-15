@@ -291,3 +291,20 @@ def test_save_writes_json_sidecar_with_expected_keys(
     assert sorted(metadata["groups"]) == ["AC", "RJ", "SP"]
     assert "params" in metadata
     assert metadata["params"]["objective"] == "regression_l1"
+
+
+def test_fit_with_eval_set_triggers_early_stopping(train_df: pd.DataFrame) -> None:
+    """Passing an eval_set must enable LightGBM's early stopping callback.
+    With ~365 days of train and 200 max trees, the model should stop well
+    before 200 (otherwise early stopping isn't kicking in).
+    """
+    val = train_df.iloc[-100:].reset_index(drop=True)
+    train = train_df.iloc[:-100].reset_index(drop=True)
+
+    model = LightGBMForecaster(params={"n_estimators": 200, "verbose": -1})
+    model.fit(train, eval_set=val, early_stopping_rounds=20)
+
+    assert model.model_.best_iteration_ > 0
+    assert model.model_.best_iteration_ < 200, (
+        f"Early stopping did not engage; best_iteration_={model.model_.best_iteration_}"
+    )
