@@ -10,15 +10,19 @@ Public API:
   weekly/yearly seasonality and Brazilian operational calendar.
 * :class:`LightGBMForecaster`: gradient-boosted trees over the canonical
   feature pipeline (Phase 6 production model).
+* :class:`ConformalForecaster`: split conformal wrapper for any
+  ForecastModel, producing calibrated prediction intervals.
 """
 
 from shipping_forecast.models.base import ForecastModel
+from shipping_forecast.models.conformal import ConformalForecaster
 from shipping_forecast.models.lightgbm_model import LightGBMForecaster
 from shipping_forecast.models.naive import NaiveForecaster
 from shipping_forecast.models.prophet_model import ProphetForecaster
 from shipping_forecast.models.seasonal_naive import SeasonalNaiveForecaster
 
 __all__ = [
+    "ConformalForecaster",
     "ForecastModel",
     "LightGBMForecaster",
     "NaiveForecaster",
