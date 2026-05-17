@@ -144,3 +144,6 @@ credentials.json
 # ======================
 # Dockerfile SÍ se commitea, pero no los volúmenes
 docker-volumes/
+
+# Handoff notes (local only)
+HANDOFF_*.md
