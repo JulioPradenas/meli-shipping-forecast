@@ -128,6 +128,8 @@ def optimal_threshold_multiplier(
     c_under: float,
     c_over: float,
     alpha_grid: tuple[float, ...] = (
+        -0.20,
+        -0.15,
         -0.10,
         -0.05,
         0.0,
@@ -139,6 +141,11 @@ def optimal_threshold_multiplier(
         0.30,
         0.40,
         0.50,
+        0.60,
+        0.70,
+        0.80,
+        0.90,
+        1.00,
     ),
 ) -> tuple[float, float]:
     """Find the multiplicative offset that minimises asymmetric cost.

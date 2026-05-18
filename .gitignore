@@ -93,6 +93,8 @@ data/processed/*
 !data/processed/phase6/
 data/processed/phase6/*.joblib
 data/processed/phase6/*.db
+!data/processed/phase7/
+data/processed/phase7/*.joblib
 
 # Bases de datos
 *.db
