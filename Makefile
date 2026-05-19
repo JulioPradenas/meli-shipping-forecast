@@ -1,4 +1,4 @@
-.PHONY: help install test lint format typecheck check fix clean
+.PHONY: help install test lint format typecheck check fix clean train-model
 
 help:
 	@echo "Available commands:"
@@ -10,6 +10,7 @@ help:
 	@echo "  make check     - Run all checks WITHOUT modifying files (used by CI)"
 	@echo "  make fix       - Auto-format AND run all checks (recommended for dev)"
 	@echo "  make clean     - Remove caches and build artifacts"
+	@echo "  make train-model - Train the final LightGBM model (saves to artifacts/)"
 
 install:
 	uv sync --all-extras
@@ -36,3 +37,6 @@ clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
+
+train-model:
+	uv run python -m shipping_forecast.pipelines.train_final_model

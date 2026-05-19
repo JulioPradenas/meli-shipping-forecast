@@ -293,6 +293,44 @@ def test_save_writes_json_sidecar_with_expected_keys(
     assert metadata["params"]["objective"] == "regression_l1"
 
 
+def test_save_with_extra_metadata_merges_into_sidecar(
+    fitted_model: LightGBMForecaster, tmp_path: Path
+) -> None:
+    """Extra metadata passed at save time is merged into the JSON sidecar."""
+    path = tmp_path / "model"
+    extra = {
+        "holdout_metrics": {"wape": 0.42, "mae": 123.4},
+        "train_date_range": ["2017-01-01", "2018-06-30"],
+        "version": "lgbm-v1.0.0",
+    }
+    fitted_model.save(path, extra_metadata=extra)
+
+    json_path = path.with_suffix(".joblib").with_suffix(".json")
+    metadata = json.loads(json_path.read_text())
+
+    # Built-in keys still present (no regression)
+    assert metadata["model_name"] == "LightGBMForecaster"
+    assert "params" in metadata
+
+    # Extra metadata merged in
+    assert metadata["holdout_metrics"] == {"wape": 0.42, "mae": 123.4}
+    assert metadata["train_date_range"] == ["2017-01-01", "2018-06-30"]
+    assert metadata["version"] == "lgbm-v1.0.0"
+
+
+def test_save_with_extra_metadata_can_override_builtin_keys(
+    fitted_model: LightGBMForecaster, tmp_path: Path
+) -> None:
+    """Per the docstring, extra_metadata keys overwrite built-in keys on collision."""
+    path = tmp_path / "model"
+    fitted_model.save(path, extra_metadata={"model_name": "OverriddenName"})
+
+    json_path = path.with_suffix(".joblib").with_suffix(".json")
+    metadata = json.loads(json_path.read_text())
+
+    assert metadata["model_name"] == "OverriddenName"
+
+
 def test_fit_with_eval_set_triggers_early_stopping(train_df: pd.DataFrame) -> None:
     """Passing an eval_set must enable LightGBM's early stopping callback.
     With ~365 days of train and 200 max trees, the model should stop well
