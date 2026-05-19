@@ -237,14 +237,22 @@ class LightGBMForecaster(ForecastModel):
 
     # ----------------------------------------------------------- save/load
 
-    def save(self, path: Path) -> None:
-        """Persist the model and a JSON metadata sidecar."""
+    def save(self, path: Path, extra_metadata: dict[str, Any] | None = None) -> None:
+        """Persist the model and a JSON metadata sidecar.
+
+        Args:
+            path: Destination path. Two files are written: ``path.joblib``
+                (the pickled model) and ``path.json`` (metadata sidecar).
+            extra_metadata: Optional dict merged into the metadata JSON.
+                Useful for adding context the class itself doesn't track,
+                like holdout metrics or training date ranges. Keys collide
+                with built-in metadata keys are overwritten by extra_metadata.
+        """
         if not self._fitted:
             raise RuntimeError("Cannot save an unfitted model")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(self, path.with_suffix(".joblib"))
-
         metadata = {
             "model_name": self.__class__.__name__,
             "trained_at": self._trained_at,
@@ -259,6 +267,8 @@ class LightGBMForecaster(ForecastModel):
             "groups": sorted(self.state_avg_volume_.keys()),
             "params": self.params,
         }
+        if extra_metadata is not None:
+            metadata.update(extra_metadata)
         with open(path.with_suffix(".json"), "w") as f:
             json.dump(metadata, f, indent=2)
 

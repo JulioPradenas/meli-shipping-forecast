@@ -31,7 +31,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -41,6 +40,7 @@ import pandas as pd
 from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler
 
+from shipping_forecast.data.queries import load_panel
 from shipping_forecast.evaluation import time_series_split, wape
 from shipping_forecast.models import LightGBMForecaster
 
@@ -65,28 +65,6 @@ EARLY_STOPPING_ROUNDS = 50
 
 # Logging setup.
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Data loading
-# ---------------------------------------------------------------------------
-
-
-def load_panel(db_path: Path = DB_PATH) -> pd.DataFrame:
-    """Load the daily shipments panel from SQLite."""
-    if not db_path.exists():
-        raise FileNotFoundError(
-            f"Shipping DB not found at {db_path}. Run scripts/load_data.py first."
-        )
-    with sqlite3.connect(db_path) as conn:
-        df = pd.read_sql(
-            "SELECT shipment_date, customer_state, n_shipments "
-            "FROM fact_daily_shipments_by_state "
-            "ORDER BY customer_state, shipment_date",
-            conn,
-            parse_dates=["shipment_date"],
-        )
-    return df
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +184,7 @@ def main() -> int:
     optuna.logging.set_verbosity(optuna.logging.WARNING)  # less noisy than INFO
 
     logger.info("Loading panel from %s", DB_PATH)
-    df = load_panel()
+    df = load_panel(DB_PATH)
     folds = time_series_split(df)
     logger.info("Generated %d folds; using folds %s for tuning", len(folds), TUNING_FOLDS_IDX)
     for idx in TUNING_FOLDS_IDX:
