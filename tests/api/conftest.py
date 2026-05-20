@@ -39,15 +39,42 @@ def _mock_predict(df: pd.DataFrame, horizon: int) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _mock_history_panel() -> pd.DataFrame:
+    """A tiny stand-in for the historical panel the endpoint injects.
+
+    The mock model's predict() ignores its content (it returns a fixed
+    frame regardless), so this only needs to be a non-empty DataFrame
+    with the expected columns to satisfy the dependency.
+    """
+    return pd.DataFrame(
+        {
+            "shipment_date": pd.to_datetime(["2018-08-30", "2018-08-31"]),
+            "customer_state": ["SP", "RJ"],
+            "n_shipments": [100, 50],
+        }
+    )
+
+
 @pytest.fixture
 def mock_model_info() -> dict[str, Any]:
     """Minimal model_info dict matching what endpoints read."""
     return {
         "version": "test-v0",
+        "trained_at": "2026-01-01T00:00:00+00:00",
         "last_train_date": "2018-08-31",
+        "data_cutoff": "2018-08-31",
         "n_features": 23,
         "n_groups": 2,
         "groups": ["RJ", "SP"],
+        "evaluation_metrics": {
+            "window_start": "2018-07-01",
+            "window_end": "2018-08-31",
+            "n_days": 62,
+            "wape": 0.5156,
+            "mae": 4.04,
+            "rmse": 14.22,
+        },
+        "evaluation_note": "Test evaluation note.",
     }
 
 
@@ -70,8 +97,32 @@ def client(mock_model_info: dict[str, Any]) -> TestClient:
 
     app.state.model = model
     app.state.model_info = mock_model_info
+    app.state.history_panel = _mock_history_panel()
 
     # Do NOT use TestClient(app) as a context manager here: that would run
     # the lifespan and try to load/train a real model. Plain instantiation
     # uses the state we just set.
+    return TestClient(app)
+
+
+@pytest.fixture
+def client_no_model() -> TestClient:
+    """TestClient with NO model loaded, for testing 503 paths.
+
+    Because the FastAPI app is a module-level singleton, app.state may
+    carry a model set by another test. This fixture explicitly removes
+    model and model_info from app.state so the dependencies (get_model,
+    get_model_info) hit their 503 branch.
+
+    Like the `client` fixture, it does NOT use TestClient as a context
+    manager, so the lifespan loader never runs and cannot repopulate the
+    state.
+    """
+    from shipping_forecast.api.app import app
+
+    # Explicitly clear any state a prior test may have left behind.
+    for attr in ("model", "model_info", "history_panel"):
+        if hasattr(app.state, attr):
+            delattr(app.state, attr)
+
     return TestClient(app)

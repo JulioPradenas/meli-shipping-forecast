@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from shipping_forecast.api.logging_config import get_logger
 from shipping_forecast.api.settings import Settings
 from shipping_forecast.api.v1.dependencies import (
+    get_history_panel,
     get_model,
     get_model_info,
     get_settings,
@@ -34,9 +35,7 @@ from shipping_forecast.api.v1.services import (
     map_predictions_to_response,
     resolve_cost_params,
 )
-from shipping_forecast.data.queries import load_panel
 from shipping_forecast.models import ConformalForecaster
-from shipping_forecast.pipelines.train_final_model import DATA_CUTOFF, DB_PATH
 
 logger = get_logger(__name__)
 
@@ -72,6 +71,7 @@ def predict(
     model: Annotated[ConformalForecaster, Depends(get_model)],
     model_info: Annotated[dict[str, Any], Depends(get_model_info)],
     settings: Annotated[Settings, Depends(get_settings)],
+    history_panel: Annotated[pd.DataFrame, Depends(get_history_panel)],
 ) -> PredictResponse:
     """Produce predictions for a date range and optional subset of states.
 
@@ -90,7 +90,7 @@ def predict(
     last_train_date = datetime.date.fromisoformat(model_info["last_train_date"])
     if request.start_date <= last_train_date:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"start_date ({request.start_date}) must be strictly after the "
                 f"model's last_train_date ({last_train_date}). The /predict endpoint "
@@ -104,7 +104,7 @@ def predict(
         unknown = set(request.states) - known_states
         if unknown:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
                     f"Unknown states: {sorted(unknown)}. Valid states: {sorted(known_states)}."
                 ),
@@ -116,12 +116,10 @@ def predict(
     # --- 5. Compute the prediction horizon -----------------------------
     horizon_days = (request.end_date - last_train_date).days
 
-    # --- 6. Load training panel and predict ----------------------------
-    # The model needs the historical panel up to last_train_date as input
-    # to predict() (it uses it to compute lag features for the future).
-    df_history = load_panel(DB_PATH)
-    df_history = df_history[df_history["shipment_date"] <= DATA_CUTOFF].copy()
-    df_predictions = model.predict(df_history, horizon=horizon_days)
+    # --- 6. Predict using the panel loaded at startup ------------------
+    # history_panel is injected (loaded once in the lifespan); the model
+    # uses it to compute lag features for the future horizon.
+    df_predictions = model.predict(history_panel, horizon=horizon_days)
 
     # --- 7. Filter to the requested date window -----------------------
     start_ts = pd.Timestamp(request.start_date)
