@@ -105,6 +105,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.model = model
     app.state.model_info = model_info
 
+    # Load the historical panel once at startup. The model needs it as
+    # input to predict() (to compute lag features for the future horizon).
+    # It does not change between requests, so we load it once here rather
+    # than hitting the DB on every /predict call.
+    from shipping_forecast.pipelines.train_final_model import (
+        DATA_CUTOFF,
+        DB_PATH,
+        load_panel_with_cutoff,
+    )
+
+    history_panel = load_panel_with_cutoff(DB_PATH, DATA_CUTOFF)
+    app.state.history_panel = history_panel
+    logger.info(
+        "history_panel_loaded",
+        n_rows=len(history_panel),
+        last_date=str(history_panel["shipment_date"].max().date()),
+    )
+
+    yield
+
     yield
 
     # No cleanup needed: joblib and dict GC normally when the process exits.

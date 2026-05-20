@@ -21,12 +21,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
 from fastapi import HTTPException, Request, status
 
 from shipping_forecast.api.settings import get_settings
 from shipping_forecast.models import ConformalForecaster
 
-__all__ = ["get_model", "get_model_info", "get_settings"]
+__all__ = ["get_history_panel", "get_model", "get_model_info", "get_settings"]
 
 
 def get_model(request: Request) -> ConformalForecaster:
@@ -59,3 +60,20 @@ def get_model_info(request: Request) -> dict[str, Any]:
             detail="Model metadata is not loaded.",
         )
     return info
+
+
+def get_history_panel(request: Request) -> pd.DataFrame:
+    """Return the historical panel loaded at startup, or raise 503.
+
+    The panel is the DataFrame the model needs as input to predict()
+    (to compute lag features for the future horizon). It is loaded once
+    by the lifespan into app.state.history_panel; loading it per-request
+    would hit the DB needlessly since it never changes.
+    """
+    panel: pd.DataFrame | None = getattr(request.app.state, "history_panel", None)
+    if panel is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="History panel is not loaded.",
+        )
+    return panel
