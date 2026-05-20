@@ -15,12 +15,17 @@ plain function calls instead of spinning up a TestClient.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 import pandas as pd
 
 from shipping_forecast.api.settings import Settings
-from shipping_forecast.api.v1.schemas import Prediction, PredictRequest
+from shipping_forecast.api.v1.schemas import (
+    EvaluationMetrics,
+    ModelInfoResponse,
+    Prediction,
+    PredictRequest,
+)
 
 ParamSource = Literal["request", "server_default"]
 
@@ -140,3 +145,30 @@ def map_predictions_to_response(
             )
         )
     return predictions
+
+
+def build_model_info_response(model_info: dict[str, Any]) -> ModelInfoResponse:
+    """Map the JSON sidecar dict to the public ModelInfoResponse schema.
+
+    The sidecar contains more fields than the API exposes (internal
+    conformal offsets, hyperparameters, etc.). This function selects and
+    shapes only the subset that consumers need, matching the contract
+    defined in schemas.py.
+
+    Args:
+        model_info: The parsed JSON sidecar (app.state.model_info).
+
+    Returns:
+        A ModelInfoResponse ready to serialize.
+    """
+    return ModelInfoResponse(
+        model_version=model_info["version"],
+        trained_at=model_info["trained_at"],
+        last_train_date=model_info["last_train_date"],
+        data_cutoff=model_info["data_cutoff"],
+        n_features=model_info["n_features"],
+        n_groups=model_info["n_groups"],
+        groups=model_info["groups"],
+        evaluation_metrics=EvaluationMetrics(**model_info["evaluation_metrics"]),
+        evaluation_note=model_info["evaluation_note"],
+    )
