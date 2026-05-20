@@ -90,7 +90,7 @@ def predict(
     last_train_date = datetime.date.fromisoformat(model_info["last_train_date"])
     if request.start_date <= last_train_date:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"start_date ({request.start_date}) must be strictly after the "
                 f"model's last_train_date ({last_train_date}). The /predict endpoint "
@@ -104,7 +104,7 @@ def predict(
         unknown = set(request.states) - known_states
         if unknown:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
                     f"Unknown states: {sorted(unknown)}. Valid states: {sorted(known_states)}."
                 ),
