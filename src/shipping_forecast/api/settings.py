@@ -5,6 +5,7 @@ Variables soportadas (prefijo MELI_API_):
   - MELI_API_DEFAULT_COST_RATIO: ratio de costos under/over (default 3.0)
   - MELI_API_MODEL_PATH: ruta al joblib del modelo
   - MELI_API_FAST_RETRAIN: si True, reentrena con sample reducido (para CI)
+  - MELI_API_AUTO_TRAIN: si True, lifespan entrena el modelo si no existe (para CI/dev)
 """
 
 from pydantic import Field
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     default_cost_ratio: float = Field(default=3.0, ge=0.5, le=10.0)
     model_path: str = "artifacts/lightgbm_final.joblib"
     fast_retrain: bool = False
+    auto_train: bool = False
 
     model_config = SettingsConfigDict(
         env_prefix="MELI_API_",
