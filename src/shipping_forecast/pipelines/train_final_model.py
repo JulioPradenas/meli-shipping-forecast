@@ -427,11 +427,26 @@ def main(argv: list[str] | None = None) -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output_path = args.output_dir / "lightgbm_final"
 
+    from shipping_forecast.models import LightGBMForecaster
+
+    base = prod_model.base_model
+    assert isinstance(base, LightGBMForecaster), (
+        f"Expected LightGBMForecaster, got {type(base).__name__}"
+    )
     extra_metadata: dict[str, Any] = {
         "phase": "8.1",
         "version": "lgbm-v1.1.0",
         "data_cutoff": DATA_CUTOFF.date().isoformat(),
         "fast_retrain": args.fast_retrain,
+        # Fields propagated from the base LightGBMForecaster. These are
+        # needed by the /v1/predict endpoint (states validation, last_train_date
+        # cutoff) and /v1/model/info (Phase 8.4). Without them the API has to
+        # touch model internals at request time, which we explicitly want to avoid.
+        "last_train_date": df["shipment_date"].max().date().isoformat(),
+        "n_features": len(base.feature_names_),
+        "feature_names": list(base.feature_names_),
+        "n_groups": len(base.state_avg_volume_),
+        "groups": sorted(base.state_avg_volume_.keys()),
     }
     if eval_metrics is not None:
         extra_metadata["evaluation_metrics"] = {
