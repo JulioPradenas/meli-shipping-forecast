@@ -47,7 +47,7 @@ import pandas as pd
 
 from shipping_forecast.data.queries import load_panel
 from shipping_forecast.evaluation import wape
-from shipping_forecast.models import LightGBMForecaster
+from shipping_forecast.models import ConformalForecaster, LightGBMForecaster
 
 # ---------------------------------------------------------------------------
 # Paths and constants
@@ -72,6 +72,14 @@ HOLDOUT_HORIZON_DAYS = (HOLDOUT_END - HOLDOUT_START).days + 1  # 62 days
 # them would teach the model a spurious collapse-to-zero pattern at the
 # end of the horizon. We filter them out here.
 DATA_CUTOFF = pd.Timestamp("2018-08-31")
+
+# Conformal prediction settings: alpha=0.1 yields 90% nominal coverage,
+# matching the lower_90/upper_90 fields in the response schema.
+# calibration_days=60 is the empirical sweet spot documented in
+# ConformalForecaster's docstring: it gave 89.2% empirical coverage at
+# alpha=0.1 on the MELI holdout, vs 81.6% at calib=30 and 86.7% at calib=90.
+CONFORMAL_ALPHA = 0.1
+CONFORMAL_CALIBRATION_DAYS = 60
 
 # Fast retrain params for CI: a tiny LightGBM that trains in <30s. Tests
 # of the API service validate response shape, not model accuracy, so a
@@ -289,15 +297,17 @@ def train_evaluation_model(
 def train_production_model(
     df_full: pd.DataFrame,
     params: dict[str, Any],
-) -> LightGBMForecaster:
-    """Train the production LightGBM model on the full dataset.
+) -> ConformalForecaster:
+    """Train the production model: LightGBM wrapped with conformal calibration.
 
-    Unlike :func:`train_evaluation_model`, this function uses every
-    available row to maximize the recency of the model's knowledge. No
-    holdout is reserved at this stage — the honest metrics already came
-    from the evaluation model.
+    The production model is a ``ConformalForecaster`` that wraps a
+    ``LightGBMForecaster`` to provide both point predictions and
+    distribution-free 90% prediction intervals. The wrapper re-fits the
+    base LightGBM on all but the last ``CONFORMAL_CALIBRATION_DAYS`` days
+    of the input, then calibrates the interval margins from the empirical
+    residuals on the held-out calibration window.
 
-    The model returned here is the one that gets persisted to
+    This is the model that gets persisted to
     ``artifacts/lightgbm_final.joblib`` and served by the API.
 
     Args:
@@ -305,17 +315,32 @@ def train_production_model(
         params: LightGBM hyperparameters from Phase 6.3's Optuna run.
 
     Returns:
-        A fitted ``LightGBMForecaster`` ready to ``.save()``.
+        A fitted ``ConformalForecaster`` ready to ``.save()``. The point
+        forecasts (``y_pred``) come from the base LightGBM and are identical
+        to what an unwrapped model would produce; the addition is the
+        ``y_lower`` and ``y_upper`` columns representing the 90% interval.
     """
     logger.info(
         "Training production model on %d rows (up to %s)",
         len(df_full),
         df_full["shipment_date"].max().date(),
     )
-    model = LightGBMForecaster(params=params)
-    model.fit(df_full)
-    logger.info("Production model fitted, ready for persistence.")
-    return model
+    base = LightGBMForecaster(params=params)
+    wrapper = ConformalForecaster(
+        base_model=base,
+        alpha=CONFORMAL_ALPHA,
+        calibration_days=CONFORMAL_CALIBRATION_DAYS,
+    )
+    wrapper.fit(df_full)
+    logger.info(
+        "Production model fitted (base=%s, alpha=%.2f, calibration_days=%d, "
+        "empirical_coverage=%.3f).",
+        type(wrapper.base_model).__name__,
+        wrapper.alpha,
+        wrapper.calibration_days,
+        wrapper.empirical_coverage_,
+    )
+    return wrapper
 
 
 # ---------------------------------------------------------------------------
@@ -404,7 +429,7 @@ def main(argv: list[str] | None = None) -> int:
 
     extra_metadata: dict[str, Any] = {
         "phase": "8.1",
-        "version": "lgbm-v1.0.0",
+        "version": "lgbm-v1.1.0",
         "data_cutoff": DATA_CUTOFF.date().isoformat(),
         "fast_retrain": args.fast_retrain,
     }
