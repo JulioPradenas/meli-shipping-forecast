@@ -16,6 +16,7 @@ from typing import Annotated, Any
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from shipping_forecast.api.logging_config import get_logger
 from shipping_forecast.api.settings import Settings
 from shipping_forecast.api.v1.dependencies import (
     get_model,
@@ -36,6 +37,8 @@ from shipping_forecast.api.v1.services import (
 from shipping_forecast.data.queries import load_panel
 from shipping_forecast.models import ConformalForecaster
 from shipping_forecast.pipelines.train_final_model import DATA_CUTOFF, DB_PATH
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1", tags=["v1"])
 
@@ -138,7 +141,7 @@ def predict(
     )
 
     # --- 9. Build response with metadata -------------------------------
-    return PredictResponse(
+    response = PredictResponse(
         model_version=model_info["version"],
         predictions=predictions,
         metadata=PredictMetadata(
@@ -148,6 +151,22 @@ def predict(
             cost_ratio_source=cost_ratio_source or "server_default",
         ),
     )
+
+    logger.info(
+        "prediction_completed",
+        n_predictions=len(predictions),
+        horizon_days=horizon_days,
+        states_requested=len(request.states) if request.states else "all",
+        include_intervals=request.include_intervals,
+        include_cost_aware=request.include_cost_aware,
+        alpha_used=alpha,
+        alpha_source=alpha_source,
+        cost_ratio_used=cost_ratio,
+        cost_ratio_source=cost_ratio_source,
+        model_version=model_info["version"],
+    )
+
+    return response
 
 
 @router.get("/model/info", response_model=ModelInfoResponse)

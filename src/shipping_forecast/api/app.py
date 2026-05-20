@@ -18,19 +18,22 @@ After successful load, app.state has:
 from __future__ import annotations
 
 import json
-import logging
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import joblib
-from fastapi import FastAPI
+import structlog
+from fastapi import FastAPI, Request, Response
 
+from shipping_forecast.api.logging_config import configure_logging, get_logger
 from shipping_forecast.api.settings import get_settings
 from shipping_forecast.api.v1.router import router as v1_router
 from shipping_forecast.models import ConformalForecaster
 
-logger = logging.getLogger(__name__)
+configure_logging()
+logger = get_logger(__name__)
 
 
 def _load_artifacts(model_path: Path) -> tuple[ConformalForecaster, dict]:
@@ -80,8 +83,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     if not model_path.exists() and settings.auto_train:
         logger.warning(
-            "Model joblib missing at %s; auto_train=True, invoking training pipeline.",
-            model_path,
+            "model_missing_auto_training",
+            model_path=str(model_path),
         )
         from shipping_forecast.pipelines.train_final_model import main as train_main
 
@@ -91,12 +94,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     model, model_info = _load_artifacts(model_path)
     logger.info(
-        "Model loaded: %s wrapping %s, last_train_date=%s, n_groups=%d, version=%s",
-        type(model).__name__,
-        type(model.base_model).__name__,
-        model_info["last_train_date"],
-        model_info["n_groups"],
-        model_info["version"],
+        "model_loaded",
+        model_type=type(model).__name__,
+        base_model_type=type(model.base_model).__name__,
+        last_train_date=model_info["last_train_date"],
+        n_groups=model_info["n_groups"],
+        version=model_info["version"],
     )
 
     app.state.model = model
@@ -113,5 +116,26 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next) -> Response:
+    """Attach a request_id to every request for end-to-end traceability.
+
+    The id is taken from the incoming X-Request-ID header if present
+    (so a caller or upstream proxy can propagate its own id), otherwise
+    a fresh UUID4 is generated. It is bound to the structlog contextvars
+    so every log line emitted while handling this request automatically
+    carries it, and it is echoed back in the X-Request-ID response header.
+    """
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    structlog.contextvars.bind_contextvars(request_id=request_id)
+    try:
+        response: Response = await call_next(request)
+    finally:
+        structlog.contextvars.clear_contextvars()
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 
 app.include_router(v1_router)
