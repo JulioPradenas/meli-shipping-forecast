@@ -13,4 +13,7 @@ def test_health_returns_ok(client: TestClient) -> None:
     """
     response = client.get("/v1/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["model_loaded"] is True
+    assert body["model_version"] == "test-v0"

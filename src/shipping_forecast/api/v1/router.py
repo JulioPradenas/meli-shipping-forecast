@@ -14,7 +14,7 @@ import datetime
 from typing import Annotated, Any
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from shipping_forecast.api.settings import Settings
 from shipping_forecast.api.v1.dependencies import (
@@ -23,11 +23,13 @@ from shipping_forecast.api.v1.dependencies import (
     get_settings,
 )
 from shipping_forecast.api.v1.schemas import (
+    ModelInfoResponse,
     PredictMetadata,
     PredictRequest,
     PredictResponse,
 )
 from shipping_forecast.api.v1.services import (
+    build_model_info_response,
     map_predictions_to_response,
     resolve_cost_params,
 )
@@ -39,13 +41,26 @@ router = APIRouter(prefix="/v1", tags=["v1"])
 
 
 @router.get("/health")
-def health() -> dict[str, str]:
-    """Liveness probe.
+def health(request: Request) -> dict[str, str | bool]:
+    """Liveness + readiness probe.
 
-    En 8.0 retorna siempre OK. En 8.4 chequea que el modelo esté cargado
-    y retorna 503 si no lo está.
+    Returns 200 with model info when the model is loaded and ready to
+    serve. Returns 503 when the model is not loaded (startup not complete
+    or load failed). A health check that returned OK without a usable
+    model would be misleading, so readiness is part of this probe.
     """
-    return {"status": "ok"}
+    model = getattr(request.app.state, "model", None)
+    model_info = getattr(request.app.state, "model_info", None)
+    if model is None or model_info is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model is not loaded. The service is starting up or load failed.",
+        )
+    return {
+        "status": "ok",
+        "model_loaded": True,
+        "model_version": model_info["version"],
+    }
 
 
 @router.post("/predict", response_model=PredictResponse)
@@ -133,3 +148,19 @@ def predict(
             cost_ratio_source=cost_ratio_source or "server_default",
         ),
     )
+
+
+@router.get("/model/info", response_model=ModelInfoResponse)
+def model_info(
+    info: Annotated[dict[str, Any], Depends(get_model_info)],
+) -> ModelInfoResponse:
+    """Return metadata about the currently loaded model.
+
+    Surfaces the subset of model metadata consumers care about: version,
+    training date range, known states, and honest holdout metrics. The
+    full sidecar contains more (internal conformal offsets, hyperparameters)
+    but those are deliberately not exposed to keep the contract minimal.
+
+    Returns 503 (via the get_model_info dependency) if no model is loaded.
+    """
+    return build_model_info_response(info)
