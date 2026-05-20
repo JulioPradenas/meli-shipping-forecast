@@ -236,8 +236,18 @@ class ConformalForecaster(ForecastModel):
 
     # ----------------------------------------------------------- save/load
 
-    def save(self, path: Path) -> None:
-        """Persist the wrapper (including base model) + JSON sidecar."""
+    def save(self, path: Path, extra_metadata: dict[str, Any] | None = None) -> None:
+        """Persist the wrapper (including base model) + JSON sidecar.
+
+        Args:
+            path: Destination path. Two files are written: ``path.joblib``
+                (the pickled wrapper) and ``path.json`` (metadata sidecar).
+            extra_metadata: Optional dict merged into the metadata JSON.
+                Useful for adding context the class itself doesn't track,
+                like training pipeline phase, version tags, or external
+                evaluation metrics. Keys that collide with built-in
+                metadata keys are overwritten by extra_metadata.
+        """
         if not self._fitted:
             raise RuntimeError("Cannot save an unfitted model")
         path = Path(path)
@@ -261,6 +271,8 @@ class ConformalForecaster(ForecastModel):
             ),
             "base_model_class": type(self.base_model).__name__,
         }
+        if extra_metadata is not None:
+            metadata.update(extra_metadata)
         with open(path.with_suffix(".json"), "w") as f:
             json.dump(metadata, f, indent=2)
 

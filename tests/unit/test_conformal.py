@@ -128,6 +128,40 @@ def test_save_json_sidecar_includes_calibration_metadata(
     assert metadata["base_model_class"] == "SeasonalNaiveForecaster"
 
 
+def test_save_with_extra_metadata_merges_into_sidecar(
+    fitted_conformal: ConformalForecaster, tmp_path: Path
+) -> None:
+    """Extra metadata passed at save time is merged into the JSON sidecar."""
+    path = tmp_path / "conformal"
+    extra = {
+        "phase": "8.2.5",
+        "version": "lgbm-conformal-v1.0.0",
+        "evaluation_metrics": {"wape": 0.5156, "mae": 4.04},
+    }
+    fitted_conformal.save(path, extra_metadata=extra)
+    metadata = json.loads(path.with_suffix(".json").read_text())
+
+    # Built-in keys still present (no regression)
+    assert metadata["model_name"] == "ConformalForecaster"
+    assert metadata["alpha"] == 0.1
+    assert "lower_offset" in metadata
+
+    # Extra metadata merged in
+    assert metadata["phase"] == "8.2.5"
+    assert metadata["version"] == "lgbm-conformal-v1.0.0"
+    assert metadata["evaluation_metrics"] == {"wape": 0.5156, "mae": 4.04}
+
+
+def test_save_with_extra_metadata_can_override_builtin_keys(
+    fitted_conformal: ConformalForecaster, tmp_path: Path
+) -> None:
+    """Per the docstring, extra_metadata keys overwrite built-in keys on collision."""
+    path = tmp_path / "conformal"
+    fitted_conformal.save(path, extra_metadata={"model_name": "OverriddenName"})
+    metadata = json.loads(path.with_suffix(".json").read_text())
+    assert metadata["model_name"] == "OverriddenName"
+
+
 # ---------------------------------------------------------------------------
 # API contract
 # ---------------------------------------------------------------------------
