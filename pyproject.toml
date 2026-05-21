@@ -38,6 +38,7 @@ dependencies = [
     "matplotlib>=3.8.0",
     "seaborn>=0.13.0",
     "plotly>=5.20.0",
+    "streamlit>=1.35.0",
     # Config
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
@@ -103,6 +104,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"streamlit_app.py" = ["RUF001"]
 # ML convention: X_train, X_test (uppercase X for feature matrices, lowercase y for targets).
 # We allow N806 in modules that legitimately use this convention.
 "tests/*" = ["N802", "N803", "N806"]
