@@ -156,3 +156,4 @@ docker-volumes/
 
 # Handoff notes (local only)
 HANDOFF_*.md
+notebooks/*.png
