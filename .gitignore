@@ -120,6 +120,7 @@ models/saved/*
 artifacts/*
 !artifacts/lightgbm_final.joblib
 !artifacts/lightgbm_final.json
+!artifacts/history_panel.parquet
 
 # ======================
 # MLflow

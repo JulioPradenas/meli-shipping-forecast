@@ -46,17 +46,15 @@ def load_model():
 
 
 @st.cache_resource(show_spinner="Cargando datos históricos...")
-def load_history():
-    """Carga el panel histórico una vez (necesario para model.predict())."""
-    from shipping_forecast.pipelines.train_final_model import (
-        DATA_CUTOFF,
-        load_panel_with_cutoff,
-    )
-    from shipping_forecast.pipelines.train_final_model import (
-        DB_PATH as TRAIN_DB_PATH,
-    )
+def load_history() -> pd.DataFrame:
+    """Carga el panel histórico desde el parquet persistido.
 
-    return load_panel_with_cutoff(TRAIN_DB_PATH, DATA_CUTOFF)
+    El parquet (artifacts/history_panel.parquet) se genera con
+    make train-model y se incluye en el repo para que Streamlit Cloud
+    no necesite la base de datos SQLite.
+    """
+    parquet_path = PROJECT_ROOT / "artifacts" / "history_panel.parquet"
+    return pd.read_parquet(parquet_path)
 
 
 # ---------------------------------------------------------------------------
