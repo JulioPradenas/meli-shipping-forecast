@@ -1,6 +1,7 @@
 # Sistema de Forecasting de Demanda de Envíos
 
 [![CI](https://github.com/JulioPradenas/meli-shipping-forecast/actions/workflows/ci.yml/badge.svg)](https://github.com/JulioPradenas/meli-shipping-forecast/actions/workflows/ci.yml)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://meli-shipping-forecast.streamlit.app/)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -112,9 +113,9 @@ make train-model   # Entrenar y persistir el modelo LightGBM final
 - [x] **8.8**: Notebook de ejemplo de uso del API
 - [x] **8.9**: README de la API + cierre de Fase 8
 
-### Fases pendientes
 
-- [ ] **Fase 9**: Dashboard Streamlit + deploy en Streamlit Cloud
+### Fases completadas recientemente
+- [x] **Fase 9**: Dashboard Streamlit + deploy en Streamlit Cloud → [Ver dashboard](https://meli-shipping-forecast.streamlit.app/)
 
 ## Métricas clave del modelo actual
 
