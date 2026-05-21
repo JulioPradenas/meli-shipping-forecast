@@ -2853,6 +2853,7 @@ dependencies = [
     { name = "shap", version = "0.51.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
     { name = "sqlalchemy" },
     { name = "statsmodels" },
+    { name = "streamlit" },
     { name = "structlog" },
 ]
 
@@ -2913,6 +2914,7 @@ requires-dist = [
     { name = "shap", specifier = ">=0.45.0" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "statsmodels", specifier = ">=0.14.0" },
+    { name = "streamlit", specifier = ">=1.35.0" },
     { name = "streamlit", marker = "extra == 'app'", specifier = ">=1.32.0" },
     { name = "structlog", specifier = ">=24.1.0" },
     { name = "types-requests", marker = "extra == 'dev'" },
