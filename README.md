@@ -104,13 +104,13 @@ make train-model   # Entrenar y persistir el modelo LightGBM final
 - [x] **8.0**: Scaffolding del servicio FastAPI con endpoint `/v1/health`
 - [x] **8.1**: Pipeline `make train-model` con doble modelo (evaluación + producción) y holdout honesto sin leakage de `eval_set`. WAPE honesto = 0.5156
 - [x] **8.2**: Schemas Pydantic v2 para el endpoint `/v1/predict` (PredictRequest, Prediction, PredictMetadata, PredictResponse, ModelInfoResponse) con validators de horizonte ≤90 días, alpha en [-2, +2], cost_ratio en [0.5, 10]
-- [ ] **8.3**: Implementación del endpoint `/v1/predict` con resolución de alpha/cost_ratio y conformal intervals
-- [ ] **8.4**: Endpoints `/v1/health` y `/v1/model/info` conectados al modelo cargado vía lifespan
-- [ ] **8.5**: Logging estructurado con structlog + middleware de request_id
-- [ ] **8.6**: Tests del API con modelo mock (corren en cada PR)
-- [ ] **8.7**: Tests E2E con modelo real (job nightly separado de CI)
-- [ ] **8.8**: Notebook de ejemplo de uso del API
-- [ ] **8.9**: README de la API + cierre de Fase 8
+- [x] **8.3**: Implementación del endpoint `/v1/predict` con resolución de alpha/cost_ratio y conformal intervals
+- [x] **8.4**: Endpoints `/v1/health` y `/v1/model/info` conectados al modelo cargado vía lifespan
+- [x] **8.5**: Logging estructurado con structlog + middleware de request_id
+- [x] **8.6**: Tests del API con modelo mock (corren en cada PR)
+- [x] **8.7**: Tests E2E con modelo real (skippean en CI si no hay DB/modelo)
+- [x] **8.8**: Notebook de ejemplo de uso del API
+- [x] **8.9**: README de la API + cierre de Fase 8
 
 ### Fases pendientes
 
@@ -129,6 +129,106 @@ Modelo en producción: **LightGBM tuneado con Optuna**, 23 features, 27 estados 
 | Best Optuna trial | #36 de 100 | TPE sampler con MedianPruner |
 
 El modelo se persiste con metadata trazable: timestamp UTC de entrenamiento, fechas del holdout, métricas honestas, y nota explicando la metodología sin atajos estadísticos.
+
+## API Service
+
+El proyecto expone un servicio HTTP (FastAPI) que sirve predicciones de demanda de envíos con intervalos conformales y recomendaciones cost-aware.
+
+### Quickstart
+
+```bash
+# 1. Generar el modelo (primera vez o después de cambios en el pipeline)
+make train-model
+
+# 2. Levantar el servidor
+uv run uvicorn shipping_forecast.api.app:app --port 8000 --reload
+
+# 3. Verificar que está corriendo
+curl http://127.0.0.1:8000/v1/health
+```
+
+### Endpoints
+
+| Endpoint | Método | Descripción |
+|---|---|---|
+| `/v1/health` | GET | Liveness + readiness. Retorna 200 con versión del modelo, 503 si no está cargado |
+| `/v1/model/info` | GET | Metadata pública del modelo: versión, fechas, estados, métricas de evaluación |
+| `/v1/predict` | POST | Predicciones de demanda para un rango de fechas y estados opcionales |
+
+### POST `/v1/predict` — Parámetros
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|---|---|---|---|---|
+| `start_date` | date | ✅ | — | Primer día a predecir (debe ser > `last_train_date`) |
+| `end_date` | date | ✅ | — | Último día (máximo 90 días desde `start_date`) |
+| `states` | list[str] | ❌ | todos | Subconjunto de los 27 estados brasileños |
+| `include_intervals` | bool | ❌ | `true` | Incluir `lower_90` / `upper_90` en el response |
+| `include_cost_aware` | bool | ❌ | `true` | Incluir `recommended`, `alpha_used`, `cost_ratio_used` |
+| `alpha` | float | ❌ | 0.65 | Parámetro de asimetría. Rango: [-2, +2] |
+| `cost_ratio` | float | ❌ | 3.0 | Ratio costo-subpredicción vs sobrepredicción. Rango: [0.5, 10] |
+
+### El parámetro `alpha` — cost-aware predictions
+
+El modelo genera predicciones puntuales (`point`) e intervalos conformales calibrados al 90% (`lower_90`, `upper_90`). El campo `recommended` aplica un margen asimétrico para reflejar el costo diferencial de errar en cada dirección:
+alpha > 0 → recommended = point + alpha × (upper_90 - point)   # penaliza subpredicción
+alpha = 0 → recommended = point                                  # sin ajuste
+alpha < 0 → recommended = point + alpha × (point - lower_90)   # penaliza sobrepredicción
+
+Con `alpha = 0.65` (default), el `recommended` se ubica 65% del camino entre `point` y `upper_90`, balanceando la cobertura operacional contra el costo de sobre-provisionar capacidad.
+
+### Ejemplo de request / response
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "start_date": "2018-09-01",
+    "end_date": "2018-09-03",
+    "states": ["SP"],
+    "alpha": 0.65
+  }'
+```
+
+```json
+{
+  "model_version": "lgbm-v1.1.0",
+  "predictions": [
+    {
+      "date": "2018-09-01",
+      "state": "SP",
+      "point": 1.67,
+      "lower_90": 0.0,
+      "upper_90": 17.99,
+      "recommended": 12.28,
+      "alpha_used": 0.65,
+      "cost_ratio_used": 3.0
+    }
+  ],
+  "metadata": {
+    "predicted_at": "2026-05-20T17:00:00Z",
+    "n_predictions": 3,
+    "alpha_source": "request",
+    "cost_ratio_source": "server_default"
+  }
+}
+```
+
+### Trazabilidad y observabilidad
+
+- Cada request recibe un `X-Request-ID` (generado o propagado desde el caller) que aparece en todos los logs y se devuelve en el response header.
+- Logs en JSON (producción) o consola con colores (desarrollo), con campos estructurados: `n_predictions`, `horizon_days`, `alpha_used`, `alpha_source`, `model_version`.
+- El campo `alpha_source` (`"request"` vs `"server_default"`) permite auditar qué parámetros usó cada predicción.
+
+### Stack técnico del servicio
+
+| Componente | Tecnología |
+|---|---|
+| Framework HTTP | FastAPI |
+| Validación de schemas | Pydantic v2 |
+| Servidor ASGI | Uvicorn |
+| Logging estructurado | structlog |
+| Tests | pytest + TestClient (mock model, sin DB en CI) |
+| Tests E2E | pytest + modelo real (skippean en CI) |
 
 ## Licencia
 
