@@ -21,7 +21,7 @@ Dado el registro histórico de envíos por región, predecir el volumen diario d
 
 ## Aspectos destacados
 
-- **285 tests passing**, CI verde, codebase modular OOP distribuido en 39 archivos fuente.
+- **311 tests passing**, CI verde, codebase modular OOP distribuido en 39 archivos fuente.
 - **Evaluación cost-sensitive**: se detectó que la precisión promedio (WAPE) es engañosa bajo costos asimétricos. Se construyó un pipeline completo de análisis costo-vs-tuning que cuantifica la ganancia en dólares a lo largo de distintos ratios de costo (1x a 5x).
 - **Auditoría de rigor estadístico**: se identificó un leakage sutil de `eval_set` en el WAPE de holdout reportado en Fase 6 (0.4694). Se re-evaluó honestamente sin ese atajo (0.5156) y la trazabilidad quedó documentada explícitamente en el metadata sidecar del modelo.
 - **Forecasting recursivo**: el modelo LightGBM maneja correctamente las features de lag en horizontes largos inyectando las predicciones de vuelta en el DataFrame de trabajo, evitando el clásico bug de colapso al promedio.
@@ -36,7 +36,7 @@ Dado el registro histórico de envíos por región, predecir el volumen diario d
 - **Interpretabilidad**: SHAP
 - **Tracking de experimentos**: MLflow
 - **API**: FastAPI (schemas Pydantic v2, carga del modelo gestionada por lifespan)
-- **Dashboard**: Streamlit (planificado)
+- **Dashboard**: Streamlit ([desplegado en Streamlit Cloud](https://meli-shipping-forecast.streamlit.app/))
 - **Infraestructura**: Docker, GitHub Actions
 - **Calidad**: pytest, ruff, mypy, pre-commit
 
@@ -52,7 +52,7 @@ meli-shipping-forecast/
 │   ├── models/              # SeasonalNaive, LightGBM, Conformal, Prophet
 │   ├── pipelines/           # Entrenamiento final con holdout honesto
 │   └── utils/               # Logging y helpers
-├── tests/                   # 285 tests unitarios + integración
+├── tests/                   # 311 tests unitarios + integración
 ├── notebooks/               # EDA + tuning + análisis cost-sensitive
 ├── sql/                     # Scripts DDL y queries analíticas
 ├── scripts/                 # Tuning con Optuna, carga inicial, análisis batch
@@ -98,9 +98,9 @@ make train-model   # Entrenar y persistir el modelo LightGBM final
 - [x] **Fase 5**: Modelos baseline (Naive, SeasonalNaive con WAPE=0.4355 promedio en CV folds 1-3)
 - [x] **Fase 6**: Modelo LightGBM tuneado con Optuna (100 trials, 8 hiperparámetros, MedianPruner). WAPE CV mean = 0.4042
 - [x] **Fase 7**: Evaluación cost-sensitive. Pipeline batch que computa ganancia esperada bajo costos asimétricos para 4 cost ratios y 4 folds. Notebook con análisis y 3 plots
-- [x] **Fase 8 (parcial)**: API productiva con FastAPI
+- [x] **Fase 8**: API productiva con FastAPI (completa)
 
-### Fase 8 — En progreso
+### Fase 8 — Completada
 
 - [x] **8.0**: Scaffolding del servicio FastAPI con endpoint `/v1/health`
 - [x] **8.1**: Pipeline `make train-model` con doble modelo (evaluación + producción) y holdout honesto sin leakage de `eval_set`. WAPE honesto = 0.5156
@@ -113,8 +113,8 @@ make train-model   # Entrenar y persistir el modelo LightGBM final
 - [x] **8.8**: Notebook de ejemplo de uso del API
 - [x] **8.9**: README de la API + cierre de Fase 8
 
+### Fase 9 — Completada
 
-### Fases completadas recientemente
 - [x] **Fase 9**: Dashboard Streamlit + deploy en Streamlit Cloud → [Ver dashboard](https://meli-shipping-forecast.streamlit.app/)
 
 ## Métricas clave del modelo actual
